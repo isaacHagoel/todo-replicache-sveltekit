@@ -2,6 +2,7 @@
 
 Multiplayer, offline-compatible TODO-MVC Demo.
 ![sveltekit-replicache-demo](https://github.com/isaacHagoel/todo-replicache-sveltekit/assets/20507787/11b5ae10-049d-4cc7-82bf-45d8287701f0)
+
 [Play with this app on render](https://todo-replicache-sveltekit.onrender.com/)
 
 This repository contains sample code for [Replicache](https://replicache.dev/). The example uses SvelteKit. The backend demonstrates implementations of `push`, `pull`, `poke`, `createSpace`, and `spaceExists` handlers, which are required for the Replicache sync protocol.
