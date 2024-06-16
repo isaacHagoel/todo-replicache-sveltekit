@@ -28,8 +28,8 @@ This looks and feels like the normal [TODO MVC](https://todomvc.com/) app but ha
 
 ### Stuff I'd Like to Explore/Add But Haven't Yet
 
-1. Undo/Redo/Version history (maybe using [dolt](https://www.dolthub.com/)).
-2. A conventional DB schema (e.g a table for items)
+1. Undo/redo (using [this pakcage](https://github.com/rocicorp/undo)) and Version history (maybe using [Dolt](https://www.dolthub.com/)).
+2. A conventional DB schema (e.g a table for items).
 3. Space creation while offline.
 
 ### Other Thoughts
