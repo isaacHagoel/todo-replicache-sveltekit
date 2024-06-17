@@ -9,7 +9,7 @@ This repository contains sample code for [Replicache](https://replicache.dev/). 
 
 This is a port of [todo-wc](https://github.com/rocicorp/todo-wc), with a few minor additions. The frontend was ported from [svelte-todomvc](https://github.com/sveltejs/svelte-todomvc). It uses [svelte-sse](https://github.com/razshare/sveltekit-sse) for server-sent events and in-memory Postgres as the database (copied directly from todo-wc).
 
-My goal in creating this was to learn more about both Replicache and SvelteKit, as porting a codebase forces one to understand it :). At the same time, I wanted to create something useful for others since the official examples on the Replicache website don't include a SvelteKit version. I chose the [example](https://doc.replicache.dev/examples/todo) with 'Per-Space Versioning' because it was the simplest one that also seemed practical (I couldn't think of a use case where global versioning would be desirable).
+My goal in creating this was to learn more about both Replicache and SvelteKit, as porting a codebase forces one to understand it :). At the same time, I wanted to create something useful for others since the official examples on the Replicache website don't include a SvelteKit version. I chose the [example](https://doc.replicache.dev/examples/todo) with 'Per-Space Versioning' because it was the simplest one that also seemed practical (I couldn't think of a use case where global versioning would be desirable). Read more about it in [this blog post](https://dev.to/isaachagoel/are-sync-engines-the-future-of-web-applications-1bbi).
 
 ## 0. What's Being Demonstrated Here?
 
@@ -28,7 +28,7 @@ This looks and feels like the normal [TODO MVC](https://todomvc.com/) app but ha
 
 ### Stuff I'd Like to Explore/Add But Haven't Yet
 
-1. Undo/redo (using [this pakcage](https://github.com/rocicorp/undo)) and Version history (maybe using [Dolt](https://www.dolthub.com/)).
+1. Undo/redo and version history (maybe using [Dolt](https://www.dolthub.com/)).
 2. A conventional DB schema (e.g a table for items).
 3. Space creation while offline.
 
