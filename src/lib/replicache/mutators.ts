@@ -55,10 +55,13 @@ export const mutators = {
 	// reconcile any changes that happened client-side in the meantime, and update
 	// the UI to reflect the changes.
 	createTodo: async (tx: WriteTransaction, todo: Omit<Todo, 'sort'>) => {
-		const todos = await listTodos(tx);
-		todos.sort((t1, t2) => t1.sort - t2.sort);
+			const todos = await listTodos(tx);
+			todos.sort((t1, t2) => t1.sort - t2.sort);
 
-		const maxSort = todos.pop()?.sort ?? 0;
-		await tx.set(`todo/${todo.id}`, { ...todo, sort: maxSort + 1 });
-	}
+			const maxSort = todos.pop()?.sort ?? 0;
+			await tx.set(`todo/${todo.id}`, { ...todo, sort: maxSort + 1 });
+	},
+	unDeleteTodo: async (tx: WriteTransaction, todo: Todo) => {
+		await tx.set(`todo/${todo.id}`, todo);
+}
 };

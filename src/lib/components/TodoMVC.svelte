@@ -3,7 +3,9 @@
 	 * This is copied directly from https://github.com/sveltejs/svelte-todomvc and modified to integrate it with Replicache and typescript (plus some minor bug fixes)
 	 */
 	import 'todomvc-app-css/index.css';
-	import { onMount } from 'svelte';
+	import { onMount, tick } from 'svelte';
+	import { page } from '$app/stores';
+	import { get } from "svelte/store";
 	import type { Todo, TodoUpdate } from '$lib/replicache/todo';
 
 	const active = (item: Todo) => !item.completed;
@@ -12,7 +14,10 @@
 	export let items: Todo[] = [];
 	export let onCreateItem: (newTodoText: string) => void;
 	export let onUpdateItem: (updatedTodo: TodoUpdate) => void;
+	export let onUpdateItemText: (id: string, newText: string) => unknown;
+	export let onUpdateItemCompleted: (id: string, isCompleted: boolean) => unknown;
 	export let onDeleteItem: (itemId: string) => void;
+	export let onNavigation: (from: string, to: string) => void;
 
 	let currentFilter = 'all';
 	let editedItemId: string | null = null;
@@ -35,6 +40,13 @@
 		}
 	};
 
+	let prevHash = get(page).url.hash;
+	async function handleFilterClicked(to: string) {
+		await tick();
+		onNavigation(prevHash, to);
+		prevHash = to;
+	}
+
 	function clearCompleted() {
 		items
 			.filter(completed)
@@ -43,7 +55,7 @@
 	}
 
 	function toggleCompleted(item: Todo) {
-		onUpdateItem({ id: item.id, completed: !item.completed });
+		onUpdateItemCompleted(item.id, !item.completed);
 	}
 	function toggleAll(event: Event) {
 		const isChecked = (event.target as HTMLInputElement).checked;
@@ -74,7 +86,7 @@
 		if (editedItemId === null) return;
 		const target = event.target as HTMLInputElement;
 		if (target.value) {
-			onUpdateItem({ id: editedItemId, text: target.value });
+			onUpdateItemText(editedItemId, target.value);
 		} else {
 			onDeleteItem(editedItemId);
 		}
@@ -140,14 +152,15 @@
 			</span>
 
 			<ul class="filters">
+				<!-- TODO - refactor this to be a each loop or somehow nicer -->
 				<li>
-					<a class:selected={currentFilter === 'all'} href="#/">All</a>
+					<a on:click={() => handleFilterClicked("#/")} class:selected={currentFilter === 'all'} href="#/">All</a>
 				</li>
 				<li>
-					<a class:selected={currentFilter === 'active'} href="#/active">Active</a>
+					<a on:click={() => handleFilterClicked("#/active")} class:selected={currentFilter === 'active'} href="#/active">Active</a>
 				</li>
 				<li>
-					<a class:selected={currentFilter === 'completed'} href="#/completed">Completed</a>
+					<a on:click={() => handleFilterClicked("#/completed")} class:selected={currentFilter === 'completed'} href="#/completed">Completed</a>
 				</li>
 			</ul>
 

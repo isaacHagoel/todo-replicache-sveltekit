@@ -4,13 +4,38 @@ import { serialAsyncExecutor } from "./serialAsyncExecutor";
 // TODO - add event listeners on ctrl+z etc (optional?)
 // TODO - what about disabling the undo/redo as the user types in an input to avoid conflict with the browser undo redo? or do we prevent default?
 // TODO - test this with sync operations
+// type NotConflictSensitiveUndoEntry = {
+//     operation: () => void,
+//     reverseOperation: () => void,
+//     name?: string
+// }
+// type ConflictSensitiveUndoEntryBase = {
+//     operation: () => void;
+//     reverseOperation: () => void;
+//     name: string;
+// };
 
+// type WithUndoConflict = {
+//     hasUndoConflict: () => boolean | Promise<boolean>;
+//     hasRedoConflict?: () => boolean | Promise<boolean>;
+// };
+
+// type WithRedoConflict = {
+//     hasUndoConflict?: () => boolean | Promise<boolean>;
+//     hasRedoConflict: () => boolean | Promise<boolean>;
+// };
+
+// type ConflictSensitiveUndoEntry = ConflictSensitiveUndoEntryBase & (WithUndoConflict | WithRedoConflict);
+
+// export type UndoEntry = NotConflictSensitiveUndoEntry | ConflictSensitiveUndoEntry;
 export type UndoEntry = {
     // TODO - what if the operation is async - should i wait on a promise to resolve?
     operation: () => void,
     reverseOperation: () => void,
     hasUndoConflict?: () => boolean | Promise<boolean>,
     hasRedoConflict?: () => boolean | Promise<boolean>,
+    // TODO - if we use conflict resolusion then name is mandatory
+    scopeName: string,
     name?: string, // will be returned from subscribeToCanUndoRedoChange so you can display it in a tooltip next to the buttons (e.g "undo add item")
     // conflictResolutionStrategy?: ConflictResolutionStrategy, // TODO - needed or can they simply omit hasUndoConflict?
     // onConflict?: (undoEntry: UndoEntry, isRedo: boolean) => void,   // TODO - is this needed or can we just use the other subssciption and reason?
@@ -69,12 +94,23 @@ export class UndoManager {
             throw new Error(`maxEntries has to be a positive number, got ${maxEntries}`);
         }
     }
+
+    private isLastIfConflicting(stack: UndoEntry[], getCheck: ((entry: UndoEntry) => (() => (boolean | Promise<boolean>)) | undefined)) {
+        const lastIndex = stack.length -1;
+        if (lastIndex < 0) return false;
+        const check = getCheck(stack[lastIndex]);
+        if (check === undefined) return false;
+        return this._serialAsyncExecutor.execute(check);
+    }
     private async removeConflictingEntries() {
-        const pastConflicts = await Promise.all(this._past.map(entry => entry.hasUndoConflict ? this._serialAsyncExecutor.execute(entry.hasUndoConflict) : false));
-        const futureConflicts = await Promise.all(this._future.map(entry =>  entry.hasRedoConflict ? this._serialAsyncExecutor.execute(entry.hasRedoConflict) : false));
-        this._past = this._past.filter((_, idx) => !pastConflicts[idx]);
-        this._future = this._future.filter((_, idx) => !futureConflicts[idx]);
-        // TODO - when implementing changeReason return something from here
+        if (await this.isLastIfConflicting(this._past, entry => entry.hasUndoConflict)) {
+            const conflictingEntry = this._past.pop();
+            this._past = this._past.filter(entry => entry.scopeName !== conflictingEntry?.scopeName);
+        }
+        if (await this.isLastIfConflicting(this._future, entry => entry.hasRedoConflict)) {
+            const conflictingEntry = this._future.pop();
+            this._future = this._future.filter(entry => entry.scopeName !== conflictingEntry?.scopeName);
+        }
     }
 
     async updateCanUndoRedoStatus() {
