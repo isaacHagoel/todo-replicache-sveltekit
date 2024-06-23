@@ -7,19 +7,30 @@
 	import { page } from '$app/stores';
 	import { listTodos } from '$lib/replicache/todo';
 	import type { Todo } from '$lib/replicache/todo';
+	import { getTodoById } from '$lib/replicache/todo';
 
 	import TodoMVC from '$lib/components/TodoMVC.svelte';
+
+	import {UndoManager} from "$lib/undo/UndoManager";
 
 	const { spaceID } = $page.params;
 	let replicacheInstance: Replicache<M>;
 	let _list: Todo[] = [];
 	let areAllChangesSaved = true;
+	const undoRedoManager = new UndoManager();
+	let canUndoRedo = undoRedoManager.getUndoRedoStatus();
+	undoRedoManager.subscribeToCanUndoRedoChange(newStatus => {
+		console.warn("undoRedo sub fired", newStatus);
+		canUndoRedo = newStatus;
+	});	
+
 
 	onMount(() => {
 		replicacheInstance = initReplicache(spaceID);
 		replicacheInstance.subscribe(listTodos, (data) => {
 			_list = data;
 			_list.sort((a: Todo, b: Todo) => a.sort - b.sort);
+			undoRedoManager.updateCanUndoRedoStatus();
 		});
 		// Implements a Replicache poke using Server-Sent Events.
 		// If a "poke" message is received, it will pull from the server.
@@ -59,15 +70,29 @@
 	}
 
 	async function createTodo(text: string) {
-		await replicacheInstance?.mutate.createTodo({
-			id: nanoid(),
-			text,
-			completed: false
+		const id = nanoid();
+		undoRedoManager.do({
+			operation: () => {
+				replicacheInstance?.mutate.createTodo({
+					id,
+					text,
+					completed: false
+				});
+			},
+			reverseOperation: () => {
+				replicacheInstance?.mutate.deleteTodo(id);
+			},
+			hasUndoConflict: async () => {
+				const todo = await replicacheInstance.query(async (tx) => getTodoById(tx, id));
+				return todo === undefined || todo.text !== text;
+			}
 		});
 	}
 </script>
 
 <p>{areAllChangesSaved ? 'All Data Saved' : 'Sync Pending'}</p>
+<button on:click={() => undoRedoManager.undo()} disabled={!canUndoRedo.canUndo}>Undo</button>
+<button on:click={() => undoRedoManager.redo()} disabled={!canUndoRedo.canRedo}>Redo</button>
 <section class="todoapp">
 	<TodoMVC
 		items={_list}
