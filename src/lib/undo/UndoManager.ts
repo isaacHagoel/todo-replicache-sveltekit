@@ -103,11 +103,11 @@ export class UndoManager {
         return this._serialAsyncExecutor.execute(check);
     }
     private async removeConflictingEntries() {
-        if (await this.isLastIfConflicting(this._past, entry => entry.hasUndoConflict)) {
+        while (await this.isLastIfConflicting(this._past, entry => entry.hasUndoConflict)) {
             const conflictingEntry = this._past.pop();
             this._past = this._past.filter(entry => entry.scopeName !== conflictingEntry?.scopeName);
         }
-        if (await this.isLastIfConflicting(this._future, entry => entry.hasRedoConflict)) {
+        while (await this.isLastIfConflicting(this._future, entry => entry.hasRedoConflict)) {
             const conflictingEntry = this._future.pop();
             this._future = this._future.filter(entry => entry.scopeName !== conflictingEntry?.scopeName);
         }
@@ -133,7 +133,6 @@ export class UndoManager {
         this.updateCanUndoRedoStatus();
     }
     async undo() {
-        // TODO - check for conflict,
         const entry = this._past.pop();
         if (entry === undefined) return;
         await this._serialAsyncExecutor.execute(entry.reverseOperation);
@@ -142,7 +141,6 @@ export class UndoManager {
     
     }
     async redo() {
-        // TODO - check for conflict
         const entry = this._future.pop();
         if (entry === undefined) return;
         await this._serialAsyncExecutor.execute(entry.operation);

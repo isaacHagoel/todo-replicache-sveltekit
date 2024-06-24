@@ -1,7 +1,8 @@
 ### TEMP - TODOS
-- [] test the delete-all-completed operation
-- [] style todo/redo buttons nicely
-- [] add title (tooltip) showing the next action that will be taken
+- [] refactor the bulk operations to use updatedBy
+- [] add indication to the undo and redo button whenever a conflict removes actions
+- [] how does the undo manager deal with rollback of an optimistic update?
+- [] the whole situation around user coming back from being offline is problematic, we probably want to check for conflicts and warning the user before pushing, this might not affect undo/redo though - as long as all the changes are made in order, in one transaction and on top of all previous changes
 - [] code todos
 - [] consider a pre-exec that "goes" to the element that will be affected
 - [] address the todos in the code

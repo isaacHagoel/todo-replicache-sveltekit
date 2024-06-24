@@ -18,6 +18,7 @@
 	let replicacheInstance: Replicache<M>;
 	let _list: Todo[] = [];
 	let areAllChangesSaved = true;
+	let mySessionId = "";
 	const undoRedoManager = new UndoManager();
 	let canUndoRedo = undoRedoManager.getUndoRedoStatus();
 	undoRedoManager.subscribeToCanUndoRedoChange(newStatus => {
@@ -28,9 +29,11 @@
 
 	onMount(() => {
 		replicacheInstance = initReplicache(spaceID);
+		mySessionId = replicacheInstance.clientID;
 		replicacheInstance.subscribe(listTodos, (data) => {
 			_list = data;
 			_list.sort((a: Todo, b: Todo) => a.sort - b.sort);
+			undoRedoManager.updateCanUndoRedoStatus();
 		});
 		// Implements a Replicache poke using Server-Sent Events.
 		// If a "poke" message is received, it will pull from the server.
@@ -43,10 +46,8 @@
 		const unsubscribe = sseStore.subscribe(() => {});
 
 		// This allows us to show the user whether all their local data is saved on the server
-		replicacheInstance.onSync = async () => {
+		replicacheInstance.onSync = async (isSyncing) => {
 			areAllChangesSaved = (await replicacheInstance.experimentalPendingMutations()).length === 0;
-			// it is important to do it here and not in the replicache subscription (the subscription fires on changes we make)
-			undoRedoManager.updateCanUndoRedoStatus();
 		};
 
 		// cleanup
@@ -76,7 +77,8 @@
 		const todoToCreate = {
 					id,
 					text,
-					completed: false
+					completed: false,
+					updatedBy: mySessionId
 				}
 		undoRedoManager.do({
 			scopeName: `create_todo:${id}`,
@@ -89,7 +91,8 @@
 			},
 			hasUndoConflict: async () => {
 				const currentTodo = await replicacheInstance.query(async (tx) => getTodoById(tx, id));
-				return (currentTodo === undefined || currentTodo.text !== todoToCreate.text || currentTodo.completed !== todoToCreate.completed);
+				if (currentTodo === undefined) return true;
+				return (currentTodo.updatedBy !== mySessionId);
 			}
 		});
 	}
@@ -112,7 +115,7 @@
 
 		if (newText === currentTodo.text) return;
 
-		const updated = {id, text: newText};
+		const updated = {id, text: newText, updatedBy: mySessionId};
 		undoRedoManager.do({
 			scopeName: `update_todo_text:${id}`,
 			description: `update todo text: '${currentTodo.text}' -> '${newText}'`,
@@ -121,11 +124,13 @@
 			hasUndoConflict: async () => {
 				// TODO - why does (tx) needs the async keyword?
 				const todoNow = await replicacheInstance.query(async (tx) => getTodoById(tx, id));
-				return (!todoNow || todoNow.text !== newText);
+				if (todoNow=== undefined) return true;
+				return (todoNow.updatedBy !== mySessionId && todoNow.text !== newText);
 			},
 			hasRedoConflict: async () => {
 				const todoNow = await replicacheInstance.query(async (tx) => getTodoById(tx, id));
-				return (!todoNow || todoNow.text !== currentTodo.text);
+				if (todoNow=== undefined) return true;
+				return (todoNow.updatedBy !== mySessionId || todoNow.text !== currentTodo.text);
 			}
 		});
 	}
@@ -135,7 +140,7 @@
 		if (!currentTodo) throw new Error(`Bug! update todo couldn't find todo ${id}`);
 		if (isCompleted === currentTodo.completed) return;
 
-		const updated = {id, completed: isCompleted};
+		const updated = {id, completed: isCompleted, updatedBy: mySessionId};
 		undoRedoManager.do({
 			scopeName: `update_todo_completion:${id}`,
 			description: `mark todo ${currentTodo.text} ${isCompleted ? 'complete' : 'incomplete'}`,
@@ -143,15 +148,19 @@
 			reverseOperation: () => replicacheInstance.mutate.updateTodo(currentTodo),
 			hasUndoConflict: async () => {
 				const todoNow = await replicacheInstance.query(async (tx) => getTodoById(tx, id));
-				return (!todoNow || todoNow.completed !== isCompleted);
+				if (todoNow=== undefined) return true;
+				return (todoNow.updatedBy !== mySessionId && todoNow.completed !== isCompleted);
 			},
 			hasRedoConflict: async () => {
 				const todoNow = await replicacheInstance.query(async (tx) => getTodoById(tx, id));
-				return (!todoNow || todoNow.completed === isCompleted);
+				if (todoNow=== undefined) return true;
+				return (todoNow.updatedBy !== mySessionId && todoNow.completed === isCompleted);
 			}
 		});
 
 	}
+
+	//TODO - HERE THESE BULK OPERATIONS CAN BE SIMPLIFIED NOW THAT WE HAVE UPDATED BY
 	function setAllCompletion(isCompleted: boolean) {
 		const initialAllIdsList = _list.map(item => item.id);
 		const allIds = new Set(initialAllIdsList);
@@ -166,7 +175,7 @@
 				allIds.forEach(id => allIds.delete(id));
 				remainingItems.forEach(item => allIds.add(item.id));
 				remainingItems.forEach(item => {
-					replicacheInstance.mutate.updateTodo({...item, completed: isCompleted});
+					replicacheInstance.mutate.updateTodo({...item, updatedBy: mySessionId, completed: isCompleted});
 				});
 			},
 			reverseOperation: async () => {
