@@ -31,7 +31,6 @@
 		replicacheInstance.subscribe(listTodos, (data) => {
 			_list = data;
 			_list.sort((a: Todo, b: Todo) => a.sort - b.sort);
-			undoRedoManager.updateCanUndoRedoStatus();
 		});
 		// Implements a Replicache poke using Server-Sent Events.
 		// If a "poke" message is received, it will pull from the server.
@@ -46,6 +45,8 @@
 		// This allows us to show the user whether all their local data is saved on the server
 		replicacheInstance.onSync = async () => {
 			areAllChangesSaved = (await replicacheInstance.experimentalPendingMutations()).length === 0;
+			// it is important to do it here and not in the replicache subscription (the subscription fires on changes we make)
+			undoRedoManager.updateCanUndoRedoStatus();
 		};
 
 		// cleanup
@@ -79,6 +80,7 @@
 				}
 		undoRedoManager.do({
 			scopeName: `create_todo:${id}`,
+			description: `create todo: '${text}''`,
 			operation: () => {
 				replicacheInstance?.mutate.createTodo(todoToCreate);
 			},
@@ -97,6 +99,7 @@
 		if (!currentTodo) throw new Error(`Bug! update todo couldn't find todo ${id}`);
 		undoRedoManager.do({
 			scopeName: `delete_todo:${id}`,
+			description: `delete todo: '${currentTodo.text}'`,
 			operation: () => replicacheInstance.mutate.deleteTodo(id),
 			reverseOperation: () => replicacheInstance.mutate.unDeleteTodo(currentTodo),
 			// no conflicts because we use nanoId, so another user can't create that same todo
@@ -112,6 +115,7 @@
 		const updated = {id, text: newText};
 		undoRedoManager.do({
 			scopeName: `update_todo_text:${id}`,
+			description: `update todo text: '${currentTodo.text}' -> '${newText}'`,
 			operation: () => replicacheInstance.mutate.updateTodo(updated),
 			reverseOperation: () => replicacheInstance.mutate.updateTodo(currentTodo),
 			hasUndoConflict: async () => {
@@ -129,12 +133,12 @@
 	function updateTodoCompleted(id: string, isCompleted: boolean) {
 		const currentTodo = _list.find(todo => todo.id === id);
 		if (!currentTodo) throw new Error(`Bug! update todo couldn't find todo ${id}`);
-
 		if (isCompleted === currentTodo.completed) return;
 
 		const updated = {id, completed: isCompleted};
 		undoRedoManager.do({
 			scopeName: `update_todo_completion:${id}`,
+			description: `mark todo ${currentTodo.text} ${isCompleted ? 'complete' : 'incomplete'}`,
 			operation: () => replicacheInstance.mutate.updateTodo(updated),
 			reverseOperation: () => replicacheInstance.mutate.updateTodo(currentTodo),
 			hasUndoConflict: async () => {
@@ -143,7 +147,7 @@
 			},
 			hasRedoConflict: async () => {
 				const todoNow = await replicacheInstance.query(async (tx) => getTodoById(tx, id));
-				return (!todoNow || todoNow.completed !== currentTodo.completed);
+				return (!todoNow || todoNow.completed === isCompleted);
 			}
 		});
 
@@ -155,6 +159,7 @@
 		// TODO - refactor to eliminate code duplication
 		undoRedoManager.do({
 			scopeName: `setAllCompleted:${initialAllIdsList.join(',')}`,
+			description: `set all todos ${isCompleted? 'completed' : 'inccompleted'}`,
 			operation: async () => {
 				const currentList = await replicacheInstance.query(listTodos);
 				const remainingItems = currentList.filter(item => allIds.has(item.id)).filter(item => item.completed === !isCompleted);
@@ -190,6 +195,7 @@
 		const allIds =  new Set(InitialAllIdsList);
 		undoRedoManager.do({
 			scopeName: `deleteAllCompleted:${InitialAllIdsList.join(',')}`,
+			description: "deleted all completed todos",
 			operation: async () => {
 				// We could have also remove any items that have different text (changed by another user) if we wanted different UX, I think it is fine as is
 				const currentList = await replicacheInstance.query(listTodos);
@@ -210,18 +216,41 @@
 	} 
 	function registerNavigation(from: string, to: string) {
 		if (from === to) return;
-		console.log({from, to});
 		undoRedoManager.do({
 			scopeName: "filterChange",
+			description: `filter change ${from} -> ${to}`,
 			operation: () => window.location.hash = to,
 			reverseOperation: () => window.location.hash = from
 		});
 	}
 </script>
-
+<style>
+	.undo-redo-bar {
+		display: flex;
+		justify-content: center;
+	}
+	.undo-redo-bar button {
+		opacity: 1;
+		transition: opacity 150ms ease-in-out;
+		border-radius: 15%;
+		border: 1px solid rgba(0, 0, 0, 0.4); 	
+		padding: 0.4em;
+		margin: 0 0.2em;
+	}
+	.undo-redo-bar button:disabled {
+		opacity: 0.3;
+	}
+</style>
 <p>{areAllChangesSaved ? 'All Data Saved' : 'Sync Pending'}</p>
-<button on:click={() => undoRedoManager.undo()} disabled={!canUndoRedo.canUndo}>Undo</button>
-<button on:click={() => undoRedoManager.redo()} disabled={!canUndoRedo.canRedo}>Redo</button>
+<section class="undo-redo-bar">
+	<button on:click={() => undoRedoManager.undo()} title={canUndoRedo.canUndo ? "Undo " + canUndoRedo.canUndo : ''} disabled={!canUndoRedo.canUndo}>
+		<img src="/undo.svg" alt="Undo Icon" />
+	</button>
+	<button on:click={() => undoRedoManager.redo()} title={canUndoRedo.canRedo ? "Redo " + canUndoRedo.canRedo : ''} disabled={!canUndoRedo.canRedo}>
+		<img src="/redo.svg" alt="Redo Icon" />
+	</button>
+</section>
+
 <TestSync undoRedoManager={undoRedoManager} />
 <section class="todoapp">
 	<TodoMVC

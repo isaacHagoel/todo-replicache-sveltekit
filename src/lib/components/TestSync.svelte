@@ -9,6 +9,7 @@
         const frozenCount = count;
         undoRedoManager.do({
             scopeName: "increaseCount",
+            description: "increase counter",
             operation: () => count++,
             reverseOperation: () => count--,
             // hasUndoConflict: () => ((frozenCount + 1) !== getCurrentCount()),

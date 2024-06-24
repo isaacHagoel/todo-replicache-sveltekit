@@ -7,12 +7,12 @@ import { serialAsyncExecutor } from "./serialAsyncExecutor";
 // type NotConflictSensitiveUndoEntry = {
 //     operation: () => void,
 //     reverseOperation: () => void,
-//     name?: string
+//     description?: string
 // }
 // type ConflictSensitiveUndoEntryBase = {
 //     operation: () => void;
 //     reverseOperation: () => void;
-//     name: string;
+//     description: string;
 // };
 
 // type WithUndoConflict = {
@@ -34,9 +34,9 @@ export type UndoEntry = {
     reverseOperation: () => void,
     hasUndoConflict?: () => boolean | Promise<boolean>,
     hasRedoConflict?: () => boolean | Promise<boolean>,
-    // TODO - if we use conflict resolusion then name is mandatory
+    // TODO - if we use conflict resolusion then description is mandatory
     scopeName: string,
-    name?: string, // will be returned from subscribeToCanUndoRedoChange so you can display it in a tooltip next to the buttons (e.g "undo add item")
+    description?: string, // will be returned from subscribeToCanUndoRedoChange so you can display it in a tooltip next to the buttons (e.g "undo add item")
     // conflictResolutionStrategy?: ConflictResolutionStrategy, // TODO - needed or can they simply omit hasUndoConflict?
     // onConflict?: (undoEntry: UndoEntry, isRedo: boolean) => void,   // TODO - is this needed or can we just use the other subssciption and reason?
     preExec?: PreExecEntry // TODO - implement    
@@ -114,10 +114,12 @@ export class UndoManager {
     }
 
     async updateCanUndoRedoStatus() {
+        console.log("updating ur stat", {past: this._past});
         await this.removeConflictingEntries();
+        console.log("AFTER: updating ur stat", {past: this._past});
         this._pubsub.set({
-            canUndo: this._past.length > 0 ? this._past[this._past.length - 1]?.name || true : false,
-            canRedo: this._future.length > 0 ? this._future[this._future.length - 1]?.name || true : false
+            canUndo: this._past.length > 0 ? this._past[this._past.length - 1]?.description || true : false,
+            canRedo: this._future.length > 0 ? this._future[this._future.length - 1]?.description || true : false
         });
     }
     // TODO - do i need to bind all methods to the instance?
