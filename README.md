@@ -1,3 +1,15 @@
+### TEMP - TODOS
+- [] test the delete-all-completed operation
+- [] style todo/redo buttons nicely
+- [] add title (tooltip) showing the next action that will be taken
+- [] code todos
+- [] consider a pre-exec that "goes" to the element that will be affected
+- [] address the todos in the code
+- [] improve this readme
+- [] improve the main readme
+- [] extract library?
+- [] what about tests?
+
 # todo-replicache-sveltekit
 
 Multiplayer, offline-compatible TODO-MVC Demo.

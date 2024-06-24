@@ -13,10 +13,11 @@
 
 	export let items: Todo[] = [];
 	export let onCreateItem: (newTodoText: string) => void;
-	export let onUpdateItem: (updatedTodo: TodoUpdate) => void;
 	export let onUpdateItemText: (id: string, newText: string) => unknown;
 	export let onUpdateItemCompleted: (id: string, isCompleted: boolean) => unknown;
+	export let onSetAllCompletion: (isCompleted: boolean) => void;
 	export let onDeleteItem: (itemId: string) => void;
+	export let onDeleteAllCompletedTodos: () => void;
 	export let onNavigation: (from: string, to: string) => void;
 
 	let currentFilter = 'all';
@@ -48,23 +49,17 @@
 	}
 
 	function clearCompleted() {
-		items
-			.filter(completed)
-			.map((item) => item.id)
-			.forEach(onDeleteItem);
+		// TODO - inline
+		onDeleteAllCompletedTodos();
 	}
 
 	function toggleCompleted(item: Todo) {
+		// TODO - inline
 		onUpdateItemCompleted(item.id, !item.completed);
 	}
 	function toggleAll(event: Event) {
 		const isChecked = (event.target as HTMLInputElement).checked;
-		items.forEach((item) => {
-			onUpdateItem({
-				id: item.id,
-				completed: isChecked
-			});
-		});
+		onSetAllCompletion(isChecked);
 	}
 
 	function createNew(event: KeyboardEvent) {

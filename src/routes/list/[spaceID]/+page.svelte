@@ -21,7 +21,7 @@
 	const undoRedoManager = new UndoManager();
 	let canUndoRedo = undoRedoManager.getUndoRedoStatus();
 	undoRedoManager.subscribeToCanUndoRedoChange(newStatus => {
-		console.warn("undoRedo sub fired", newStatus);
+		console.warn("undoRedo sub fired", {...newStatus});
 		canUndoRedo = newStatus;
 	});	
 
@@ -87,7 +87,7 @@
 			},
 			hasUndoConflict: async () => {
 				const currentTodo = await replicacheInstance.query(async (tx) => getTodoById(tx, id));
-				return currentTodo === undefined || hasTodoChanged(currentTodo, todoToCreate);
+				return (currentTodo === undefined || currentTodo.text !== todoToCreate.text || currentTodo.completed !== todoToCreate.completed);
 			}
 		});
 	}
@@ -103,30 +103,6 @@
 		});
 	}
 
-	
-	////////////////////////////////////
-	type CompareTodo = Partial<Pick<Todo, 'text' | 'completed'>>;
-	function hasTodoChanged(old: CompareTodo, current: CompareTodo) {
-		return old.text !== current.text || old.completed !== current.completed;
-	}
-
-	// TODO - DELTE ALL AND COMPLETE ALL HAVE TO BE GROUPED (ADD GROUPING FEATURE?)
-	function updateTodo(updatedTodo: TodoUpdate) {
-		const currentTodo = _list.find(todo => todo.id === updatedTodo.id);
-		if (!currentTodo) throw new Error(`Bug! update todo couldn't find todo ${updatedTodo.id}`);
-
-		undoRedoManager.do({
-			scopeName: `update_todo_${updatedTodo.id}`,
-			operation: () => replicacheInstance.mutate.updateTodo(updatedTodo),
-			reverseOperation: () => replicacheInstance.mutate.updateTodo(currentTodo),
-			hasUndoConflict: async () => {
-				const currentTodo = await replicacheInstance.query(async (tx) => getTodoById(tx, updatedTodo.id));
-				return currentTodo === undefined || hasTodoChanged(currentTodo, updatedTodo);
-			}
-		});
-	}
-	/////////////////////////
-
 	function updateTodoText(id: string, newText: string) {
 		const currentTodo = _list.find(todo => todo.id === id);
 		if (!currentTodo) throw new Error(`Bug! update todo couldn't find todo ${id}`);
@@ -139,6 +115,7 @@
 			operation: () => replicacheInstance.mutate.updateTodo(updated),
 			reverseOperation: () => replicacheInstance.mutate.updateTodo(currentTodo),
 			hasUndoConflict: async () => {
+				// TODO - why does (tx) needs the async keyword?
 				const todoNow = await replicacheInstance.query(async (tx) => getTodoById(tx, id));
 				return (!todoNow || todoNow.text !== newText);
 			},
@@ -148,6 +125,7 @@
 			}
 		});
 	}
+	// TODO - can/ should I extract all of these functions to another file?
 	function updateTodoCompleted(id: string, isCompleted: boolean) {
 		const currentTodo = _list.find(todo => todo.id === id);
 		if (!currentTodo) throw new Error(`Bug! update todo couldn't find todo ${id}`);
@@ -170,16 +148,69 @@
 		});
 
 	}
-	function markAllCompleted() {
+	function setAllCompletion(isCompleted: boolean) {
+		const initialAllIdsList = _list.map(item => item.id);
+		const allIds = new Set(initialAllIdsList);
+		// It we keep toggling any remaining items that weren't changed individually (by another user), if no items remain the operation will be removed
+		// TODO - refactor to eliminate code duplication
+		undoRedoManager.do({
+			scopeName: `setAllCompleted:${initialAllIdsList.join(',')}`,
+			operation: async () => {
+				const currentList = await replicacheInstance.query(listTodos);
+				const remainingItems = currentList.filter(item => allIds.has(item.id)).filter(item => item.completed === !isCompleted);
+				allIds.forEach(id => allIds.delete(id));
+				remainingItems.forEach(item => allIds.add(item.id));
+				remainingItems.forEach(item => {
+					replicacheInstance.mutate.updateTodo({...item, completed: isCompleted});
+				});
+			},
+			reverseOperation: async () => {
+				const currentList = await replicacheInstance.query(listTodos);
+				const remainingItems = currentList.filter(item => allIds.has(item.id)).filter(item => item.completed === isCompleted);
+				allIds.forEach(id => allIds.delete(id));
+				remainingItems.forEach(item => allIds.add(item.id));
+				remainingItems.forEach(item => {
+					replicacheInstance.mutate.updateTodo({...item, completed: !isCompleted});
+				});
+			},
+			hasUndoConflict: async () => {
+				const currentList = await replicacheInstance.query(listTodos);
+				return (currentList.filter(item => allIds.has(item.id)).filter(item => item.completed === isCompleted).length === 0);
+			},
+			hasRedoConflict: async () => {
+				const currentList = await replicacheInstance.query(listTodos);
+				return (currentList.filter(item => allIds.has(item.id)).filter(item => item.completed === !isCompleted).length === 0);
+			}
+		});
 
 	}
 	function deleteAllCompletedTodos() {
+		const originalList = [..._list];
+		const InitialAllIdsList =_list.filter(item => item.completed).map(item => item.id);
+		const allIds =  new Set(InitialAllIdsList);
+		undoRedoManager.do({
+			scopeName: `deleteAllCompleted:${InitialAllIdsList.join(',')}`,
+			operation: async () => {
+				// We could have also remove any items that have different text (changed by another user) if we wanted different UX, I think it is fine as is
+				const currentList = await replicacheInstance.query(listTodos);
+				const remainingItems = currentList.filter(item => item.completed).filter(item => allIds.has(item.id));
+				allIds.forEach(id => allIds.delete(id));
+				remainingItems.forEach(item => allIds.add(item.id));
+				remainingItems.forEach(item => replicacheInstance.mutate.deleteTodo(item.id));
+			},
+			reverseOperation: () => {
+				originalList.filter(item => allIds.has(item.id)).forEach(item => replicacheInstance.mutate.unDeleteTodo(item));
+			},
+			hasRedoConflict: async () => {
+				const currentList = await replicacheInstance.query(listTodos);
+				return (currentList.filter(item => allIds.has(item.id)).length === 0);
+			}
+		});
 
 	} 
 	function registerNavigation(from: string, to: string) {
 		if (from === to) return;
 		console.log({from, to});
-		// TODO we need an option to not do the operation the first time (but only when we redo)?
 		undoRedoManager.do({
 			scopeName: "filterChange",
 			operation: () => window.location.hash = to,
@@ -197,9 +228,10 @@
 		items={_list}
 		onCreateItem={createTodo}
 		onDeleteItem={deleteTodo}
-		onUpdateItem={updateTodo}
 		onUpdateItemText={updateTodoText}
 		onUpdateItemCompleted={updateTodoCompleted}
+		onSetAllCompletion={setAllCompletion}
+		onDeleteAllCompletedTodos={deleteAllCompletedTodos}
 		onNavigation={registerNavigation}
 	/>
 </section>
