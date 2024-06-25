@@ -1,7 +1,7 @@
 ### TEMP - TODOS
 - [x] refactor the bulk operations to use updatedBy
 - [x] add indication to the undo and redo button whenever a conflict removes actions
-- [] how does the undo manager deal with rollback of an optimistic update?
+- [x] how does the undo manager deal with rollback of an optimistic update?
 - [] the whole situation around user coming back from being offline is problematic, we probably want to check for conflicts and warning the user before pushing, this might not affect undo/redo though - as long as all the changes are made in order, in one transaction and on top of all previous changes
 - [] code todos
 - [] consider a pre-exec that "goes" to the element that will be affected

@@ -6,7 +6,7 @@
 	import { mutators, type M } from '$lib/replicache/mutators';
 	import { page } from '$app/stores';
 	import { listTodos } from '$lib/replicache/todo';
-	import type { Todo, TodoUpdate } from '$lib/replicache/todo';
+	import type { Todo } from '$lib/replicache/todo';
 	import { getTodoById } from '$lib/replicache/todo';
 
 	import TodoMVC from '$lib/components/TodoMVC.svelte';
@@ -41,19 +41,33 @@
 				const prev2 = listBefore.find(prevItem => prevItem.id === item.id);
 				if (!prev2) return false; // new item
 				if (prev2 && !prev) return true; // an existing item that was updated by someone else now 
-				// this is not perfect - will be called if the other session creates and items and change it without this session ever touching it - okay for now but not perfect
+				/* this is not perfect - will be called if the other session creates and items and change it, 
+				without this session ever touching it - okay for now but not perfect */
 				return prev?.text !== item.text || prev?.completed !== item.completed;
 			}).length > 0) {
 				undoRedoManager.updateCanUndoRedoStatus();
+				return true;
 			} 
+		return false;	
 	}
+	// I also couldn't find a way to learn whether our changes were overriden by the server (see the magic words in mutators.js)
+	function updateCanUndoRedoStatusOnServerOverridingOurChanges(data: Todo[]) {
+		/* I haven't implemented this, but keeping it here as a placeholder, 
+		it needs to figure out if what we got back is the actual change we tried to make.
+		if not, the undo stack might require an update, 
+		noticably the "description" (tooltip) the user sees would be wrong without this.
+		*/ 
+	}
+
 	/*************************************/
 
 	onMount(() => {
 		replicacheInstance = initReplicache(spaceID);
 		mySessionId = replicacheInstance.clientID;
 		replicacheInstance.subscribe(listTodos, (data) => {
-			updateTodoUndoStatusOnExternalChanges(data);
+			if (!updateTodoUndoStatusOnExternalChanges(data)) {
+				updateCanUndoRedoStatusOnServerOverridingOurChanges(data);
+			}
 			_list = data;
 			_list.sort((a: Todo, b: Todo) => a.sort - b.sort);
 		});
@@ -64,7 +78,7 @@
 			console.log('poked! pulling fresh data for spaceID', spaceID);
 			replicacheInstance.pull();
 		});
-		// The line below are kinda dumb, it prevents Svelte from removing this store at compile time (since it has not subscribers)
+		// The line below is kinda dumb, it prevents Svelte from removing this store at compile time (since it has not subscribers)
 		const unsubscribe = sseStore.subscribe(() => {});
 
 		// This allows us to show the user whether all their local data is saved on the server
@@ -103,7 +117,7 @@
 					completed: false,
 					updatedBy: mySessionId
 				}
-		let sort = -1;
+		let sort = -1; 
 		undoRedoManager.do({
 			scopeName: `create_todo:${id}`,
 			description: `create todo: '${text}''`,

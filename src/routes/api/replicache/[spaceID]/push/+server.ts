@@ -2,7 +2,7 @@ import { json } from '@sveltejs/kit';
 import { z, type ZodType } from 'zod';
 import type { MutatorDefs, ReadonlyJSONValue } from 'replicache';
 import { ReplicacheTransaction } from 'replicache-transaction';
-import { mutators } from '$lib/replicache/mutators.js';
+import { serverMutators as mutators } from '$lib/replicache/mutators.js';
 import { transact } from '$lib/server/db/pg.js';
 import { getPokeBackend } from '$lib/server/sse/poke';
 import { PostgresStorage } from '$lib/server/db/postgres-storage.js';
