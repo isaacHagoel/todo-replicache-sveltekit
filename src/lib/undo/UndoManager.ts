@@ -1,41 +1,16 @@
 import { createStore } from "./simplePubSub";
 import { serialAsyncExecutor } from "./serialAsyncExecutor";
 
-// TODO - add event listeners on ctrl+z etc (optional?)
-// TODO - what about disabling the undo/redo as the user types in an input to avoid conflict with the browser undo redo? or do we prevent default?
-// TODO - test this with sync operations
-
 export type UndoEntry = {
-    // TODO - what if the operation is async - should i wait on a promise to resolve?
     operation: () => void,
     reverseOperation: () => void,
     hasUndoConflict?: () => boolean | Promise<boolean>,
     hasRedoConflict?: () => boolean | Promise<boolean>,
+    // determines what gets removed when there are conflict
     scopeName: string,
-    description?: string, // will be returned from subscribeToCanUndoRedoChange so you can display it in a tooltip next to the buttons (e.g "undo add item")
-    preExec?: PreExecEntry // TODO - implement    
+    // will be returned from subscribeToCanUndoRedoChange so you can display it in a tooltip next to the buttons (e.g "undo add item")    
+    description?: string,
 }
-
-// export enum ConflictResolutionStrategy{
-//     REVOKE_CONFLICTING = "REVOKE_CONFLICTING",
-//     REVOKE_ALL = "REVOKE_ALL"
-// }
-
-export enum PreExecOption {
-    RESTORE_FOCUS = "RESTORE_FOCUS",
-    CUSTOM = "COSTUM"
-}
-
-
-export type PreExecEntry = {
-    action: PreExecOption.RESTORE_FOCUS,
-    querySelector: string
-} | {
-    action: PreExecOption.CUSTOM,
-    callback: (undoEntry: UndoEntry, isRedo: boolean) => void
-}
-
-type DontCare = any; 
 
 export type UndoRedoStatus = {
     canUndo: boolean | string, 
@@ -44,16 +19,8 @@ export type UndoRedoStatus = {
     canRedoChangeReason: CHANGE_REASON
 } 
 
-type CallbackFunction =  (newStatus: UndoRedoStatus) => DontCare;
+type CallbackFunction =  (newStatus: UndoRedoStatus) => unknown;
 
-
-export type UndoManagerOptions = {
-    // TODO - implement
-    maxEntries?: number
-};
-
-const DEFAULT_MAX_ENTRIES = 500;
-// Todo all enums make this naming convention?
 export enum CHANGE_REASON {
     Do = "Do",
     Undo = "Undo",
@@ -62,8 +29,16 @@ export enum CHANGE_REASON {
     NoChange = "NoChange"
 }
 
+/****
+ * This a POC implementation of an undo-redo manager that can deal with async or sync operations. 
+ * It makes sure async operations are executed serially to avoid race conditions (later operation finishing before a previous one)
+ * It supports conflicts checks and in case of a conflicting entry at the head of the undo or redo queue it removes
+ * all the entries with the same scopeName from the stack.
+ * It exposes the next action to unde/redo and the change reason when it changes.
+ * ****
+ * The consumer is expected to call `updateCanUndoRedoStatus` when external changes that can create conflicts are executed  
+ ******/
 export class UndoManager {
-    private _maxEntries: number; 
     private _past: UndoEntry[] = [];
     private _future: UndoEntry[] = [];
     private _pubsub = createStore<UndoRedoStatus>(
@@ -72,12 +47,6 @@ export class UndoManager {
     );
     private _serialAsyncExecutor = serialAsyncExecutor();
    
-    constructor({maxEntries}: UndoManagerOptions = {}) {
-        this._maxEntries = maxEntries ?? DEFAULT_MAX_ENTRIES;
-        if (this._maxEntries <= 0) {
-            throw new Error(`maxEntries has to be a positive number, got ${maxEntries}`);
-        }
-    }
 
     private isLastIfConflicting(stack: UndoEntry[], getCheck: ((entry: UndoEntry) => (() => (boolean | Promise<boolean>)) | undefined)) {
         const lastIndex = stack.length -1;
@@ -116,29 +85,38 @@ export class UndoManager {
     async updateCanUndoRedoStatus() {
        this._updateCanUndoRedoStatus();
     }
-    // TODO - do i need to bind all methods to the instance?
 
     async do(undoEntry: UndoEntry) {
         this._future = [];
-        // TODO - should i await here? if yes it add a bunch of complexity, like what to do if the user spam clicks while it waits
-        // TODO - add try/catch around all operations (?)
-        await this._serialAsyncExecutor.execute(undoEntry.operation);
-        this._past.push(undoEntry);
+        try {
+            await this._serialAsyncExecutor.execute(undoEntry.operation);
+            this._past.push(undoEntry);
+        } catch(e) {
+            console.error(`Faulty do operation: ${undoEntry.scopeName}`);
+        }
         this._updateCanUndoRedoStatus(CHANGE_REASON.Do);
     }
     async undo() {
         const entry = this._past.pop();
         if (entry === undefined) return;
-        await this._serialAsyncExecutor.execute(entry.reverseOperation);
-        this._future.push(entry);
+        try {
+            await this._serialAsyncExecutor.execute(entry.reverseOperation);
+            this._future.push(entry);
+        } catch (e) {
+            console.error(`Faulty reverse operation: ${entry.scopeName}`);
+        }
         this._updateCanUndoRedoStatus(CHANGE_REASON.Undo);
     
     }
     async redo() {
         const entry = this._future.pop();
         if (entry === undefined) return;
-        await this._serialAsyncExecutor.execute(entry.operation);
-        this._past.push(entry);
+        try {
+            await this._serialAsyncExecutor.execute(entry.operation);
+            this._past.push(entry);
+        } catch (e) {
+            console.error(`Faulty redo operation: ${entry.scopeName}`);
+        }
         this._updateCanUndoRedoStatus(CHANGE_REASON.Redo);
     }
 

@@ -22,7 +22,7 @@
 	const undoRedoManager = new UndoManager();
 	let canUndoRedo = undoRedoManager.getUndoRedoStatus();
 	undoRedoManager.subscribeToCanUndoRedoChange(newStatus => {
-		console.warn("undoRedo sub fired", {...newStatus});
+		console.log("undoRedo sub fired", {...newStatus});
 		canUndoRedo = newStatus;
 	});	
 
@@ -33,7 +33,6 @@
 		const listBefore = [..._list];
 			const updatedByAnotherBefore = _list.filter(item => item.updatedBy !== mySessionId);
 			const updatedByAnotherNow = data.filter(item => item.updatedBy !== mySessionId);
-			console.log("HELLO", {updatedByAnotherBefore, updatedByAnotherNow});
 		
 			if (knownItemIds.find(id => !data.find(item => item.id === id)) // an item was deleted by another session 
 			|| updatedByAnotherNow.filter(item => {
@@ -122,24 +121,22 @@
 			scopeName: `create_todo:${id}`,
 			description: `create todo: '${text}''`,
 			operation: async () => {
-				console.log("IS REDO", {isRedo, sort});
 				if (isRedo) {
-					// TODO remove ? from the calls to the instance
 					replicacheInstance.mutate.unDeleteTodo({...todoToCreate, sort});
 				} else {
 					isRedo = true;
 					await replicacheInstance.mutate.createTodo(todoToCreate);
-					const createdTodo = await replicacheInstance.query(async (tx) => getTodoById(tx, id))
+					const createdTodo = await replicacheInstance.query(tx => getTodoById(tx, id))
 					if (createdTodo) {
 						sort = createdTodo.sort;
 					}
 				}
 			},
 			reverseOperation: () => {
-				replicacheInstance?.mutate.deleteTodo(id);
+				replicacheInstance.mutate.deleteTodo(id);
 			},
 			hasUndoConflict: async () => {
-				const currentTodo = await replicacheInstance.query(async (tx) => getTodoById(tx, id));
+				const currentTodo = await replicacheInstance.query(tx => getTodoById(tx, id));
 				if (!currentTodo) return true;
 				return (currentTodo.updatedBy !== mySessionId);
 			}
@@ -171,19 +168,18 @@
 			operation: () => replicacheInstance.mutate.updateTodo(updated),
 			reverseOperation: () => replicacheInstance.mutate.updateTodo(currentTodo),
 			hasUndoConflict: async () => {
-				// TODO - why does (tx) needs the async keyword?
-				const todoNow = await replicacheInstance.query(async (tx) => getTodoById(tx, id));
+				const todoNow = await replicacheInstance.query(tx => getTodoById(tx, id));
 				if (!todoNow) return true;
 				return (todoNow.updatedBy !== mySessionId && todoNow.text !== newText);
 			},
 			hasRedoConflict: async () => {
-				const todoNow = await replicacheInstance.query(async (tx) => getTodoById(tx, id));
+				const todoNow = await replicacheInstance.query(tx => getTodoById(tx, id));
 				if (!todoNow) return true;
 				return (todoNow.updatedBy !== mySessionId || todoNow.text !== currentTodo.text);
 			}
 		});
 	}
-	// TODO - can/ should I extract all of these functions to another file?
+	
 	function updateTodoCompleted(id: string, isCompleted: boolean) {
 		const currentTodo = _list.find(todo => todo.id === id);
 		if (!currentTodo) throw new Error(`Bug! update todo couldn't find todo ${id}`);
@@ -196,12 +192,12 @@
 			operation: () => replicacheInstance.mutate.updateTodo(updated),
 			reverseOperation: () => replicacheInstance.mutate.updateTodo(currentTodo),
 			hasUndoConflict: async () => {
-				const todoNow = await replicacheInstance.query(async (tx) => getTodoById(tx, id));
+				const todoNow = await replicacheInstance.query(tx => getTodoById(tx, id));
 				if (!todoNow) return true;
 				return (todoNow.updatedBy !== mySessionId && todoNow.completed !== isCompleted);
 			},
 			hasRedoConflict: async () => {
-				const todoNow = await replicacheInstance.query(async (tx) => getTodoById(tx, id));
+				const todoNow = await replicacheInstance.query(tx => getTodoById(tx, id));
 				if (!todoNow) return true;
 				return (todoNow.updatedBy !== mySessionId && todoNow.completed === isCompleted);
 			}
@@ -213,7 +209,6 @@
 		const initialAllIdsList = _list.map(item => item.id);
 		const allIds = new Set(initialAllIdsList);
 		// It we keep toggling any remaining items that weren't completed/uncompleted individually (by another user), if no items remain the operation will be removed
-		// TODO - refactor to eliminate code duplication
 		undoRedoManager.do({
 			scopeName: `setAllCompleted:${initialAllIdsList.join(',')}`,
 			description: `set all todos ${isCompleted? 'completed' : 'inccompleted'}`,
@@ -225,7 +220,6 @@
 				remainingItems.forEach(item => {
 					replicacheInstance.mutate.updateTodo({...item, updatedBy: mySessionId, completed: isCompleted});
 				});
-				// currentList.forEach(item => replicacheInstance.mutate.updateTodo({...item, updatedBy: mySessionId, completed: isCompleted}));
 				
 			},
 			reverseOperation: async () => {
@@ -236,16 +230,13 @@
 				remainingItems.forEach(item => {
 					replicacheInstance.mutate.updateTodo({...item, completed: !isCompleted});
 				});
-				// currentList.forEach(item => replicacheInstance.mutate.updateTodo({...item, updatedBy: mySessionId, completed: !isCompleted}));
 			},
 			hasUndoConflict: async () => {
 				const currentList = await replicacheInstance.query(listTodos);
-				//return !!currentList.filter(item => allIds.has(item.id)).find(item => item.completed !== isCompleted);
 				return (currentList.filter(item => allIds.has(item.id)).filter(item => item.completed === isCompleted).length === 0);
 			},
 			hasRedoConflict: async () => {
 				const currentList = await replicacheInstance.query(listTodos);
-				// return !!currentList.find(item => item.completed === isCompleted);
 				return (currentList.filter(item => allIds.has(item.id)).filter(item => item.completed === !isCompleted).length === 0);
 			}
 		});
@@ -259,8 +250,6 @@
 			scopeName: `deleteAllCompleted:${InitialAllIdsList.join(',')}`,
 			description: "deleted all completed todos",
 			operation: async () => {
-				// TODO - update comment below, also add to post - maybe diagram explaining the flow between this operations and conflict checks
-				// We could have also remove any items that have different text (changed by another user) if we wanted different UX, I think it is fine as is
 				let currentList = await replicacheInstance.query(listTodos);
 				// if the another session adds or deletes items that's fine, even if they are completed they won't be deleted by a redo
 				currentList = currentList.filter(item => allIds.has(item.id));
@@ -286,7 +275,6 @@
 		});
 	}
 
-	// TODO - HERE - add reason so we can ignore the change if it is because the user clicked the button
 	let undoButtonRef: HTMLElement, redoButtonRef: HTMLElement;
 	$: if (canUndoRedo.canUndo && canUndoRedo.canUndoChangeReason !== CHANGE_REASON.Undo && canUndoRedo.canUndoChangeReason !== CHANGE_REASON.NoChange) {
 		undoButtonRef.classList.remove('shrink'); 

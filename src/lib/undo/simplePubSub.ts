@@ -1,4 +1,3 @@
-// TODO - either convert this to a class or the manager to a module
 type Callback<T> = (newVal: T) => void
 type UnsbscribeFunction = () => void;
 

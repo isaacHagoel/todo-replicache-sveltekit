@@ -48,15 +48,6 @@
 		prevHash = to;
 	}
 
-	function clearCompleted() {
-		// TODO - inline
-		onDeleteAllCompletedTodos();
-	}
-
-	function toggleCompleted(item: Todo) {
-		// TODO - inline
-		onUpdateItemCompleted(item.id, !item.completed);
-	}
 	function toggleAll(event: Event) {
 		const isChecked = (event.target as HTMLInputElement).checked;
 		onSetAllCompletion(isChecked);
@@ -118,7 +109,7 @@
 							class="toggle"
 							type="checkbox"
 							checked={item.completed}
-							on:change={() => toggleCompleted(item)}
+							on:change={() => onUpdateItemCompleted(item.id, !item.completed)}
 						/>
 						<!-- svelte-ignore a11y-label-has-associated-control -->
 						<label on:dblclick={() => (editedItemId = item.id)}>{item.text}</label>
@@ -160,7 +151,7 @@
 			</ul>
 
 			{#if numCompleted}
-				<button class="clear-completed" on:click={clearCompleted}>Clear completed</button>
+				<button class="clear-completed" on:click={onDeleteAllCompletedTodos}>Clear completed</button>
 			{/if}
 		</footer>
 	</section>
