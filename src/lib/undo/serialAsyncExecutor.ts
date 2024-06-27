@@ -1,38 +1,41 @@
-type ResRej = (value: unknown) => void
+type ResRej = (value: unknown) => void;
 
 type Queueable = {
-    operation: () => any,
-    resolvers: { resolve: ResRej, reject: ResRej}
-}
+	operation: () => any;
+	resolvers: { resolve: ResRej; reject: ResRej };
+};
 
 // We want to run async operations serially and in order (the promises will resolve in the same order they were queued)
-// This could be optimised to execute in parallel but still resolve in the right order 
+// This could be optimised to execute in parallel but still resolve in the right order
 export function serialAsyncExecutor() {
-    const _queue: Queueable[] = [];
-    let isWorking = false;
-    async function pullFromQueue() {
-        isWorking = true;
-        while (true) {
-            const next = _queue.pop();
-            if (next === undefined) break;
+	const _queue: Queueable[] = [];
+	let isWorking = false;
+	async function pullFromQueue() {
+		isWorking = true;
+		while (true) {
+			const next = _queue.pop();
+			if (next === undefined) break;
 
-            const {operation, resolvers: {resolve, reject}} = next;
-            try {
-                const res = await operation();
-                resolve(res);   
-            } catch (e) {
-                reject(e);
-            }
-        }
-        isWorking = false;
-    }
-    return {
-        execute(operation: () => any) {
-            let resolve: ResRej, reject: ResRej;
-            return new Promise((resolve, reject) => {
-                _queue.push({operation, resolvers: {resolve, reject}});
-                if (!isWorking) pullFromQueue();
-            }); 
-        }
-    }
+			const {
+				operation,
+				resolvers: { resolve, reject }
+			} = next;
+			try {
+				const res = await operation();
+				resolve(res);
+			} catch (e) {
+				reject(e);
+			}
+		}
+		isWorking = false;
+	}
+	return {
+		execute(operation: () => any) {
+			let resolve: ResRej, reject: ResRej;
+			return new Promise((resolve, reject) => {
+				_queue.push({ operation, resolvers: { resolve, reject } });
+				if (!isWorking) pullFromQueue();
+			});
+		}
+	};
 }

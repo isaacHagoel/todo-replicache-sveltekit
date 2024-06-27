@@ -1,4 +1,5 @@
 ### TEMP - TODOS
+
 - [x] refactor the bulk operations to use updatedBy
 - [x] add indication to the undo and redo button whenever a conflict removes actions
 - [x] how does the undo manager deal with rollback of an optimistic update?
@@ -10,7 +11,7 @@
 - [] improve the main readme
 
 Future enhancements:
-// add event listeners on ctrl+z, shift+ctrl+z 
+// add event listeners on ctrl+z, shift+ctrl+z
 // what about disabling the undo/redo as the user types in an input to avoid conflict with the browser undo redo? or do we prevent default?
 // the idea of pre-exec to scroll the affected element into view before operating on it
 // if there was text involved how would that integrate (need to restore selection and avoid having two separate undo stacks)
@@ -18,7 +19,6 @@ Future enhancements:
 // extract library?
 // what about tests?
 // persist the undo/redo stack per user in Replicache
-
 
 # todo-replicache-sveltekit
 

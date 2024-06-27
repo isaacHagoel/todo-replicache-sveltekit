@@ -5,7 +5,7 @@
 	import 'todomvc-app-css/index.css';
 	import { onMount, tick } from 'svelte';
 	import { page } from '$app/stores';
-	import { get } from "svelte/store";
+	import { get } from 'svelte/store';
 	import type { Todo, TodoUpdate } from '$lib/replicache/todo';
 
 	const active = (item: Todo) => !item.completed;
@@ -140,18 +140,31 @@
 			<ul class="filters">
 				<!-- TODO - refactor this to be a each loop or somehow nicer -->
 				<li>
-					<a on:click={() => handleFilterClicked("#/")} class:selected={currentFilter === 'all'} href="#/">All</a>
+					<a
+						on:click={() => handleFilterClicked('#/')}
+						class:selected={currentFilter === 'all'}
+						href="#/">All</a
+					>
 				</li>
 				<li>
-					<a on:click={() => handleFilterClicked("#/active")} class:selected={currentFilter === 'active'} href="#/active">Active</a>
+					<a
+						on:click={() => handleFilterClicked('#/active')}
+						class:selected={currentFilter === 'active'}
+						href="#/active">Active</a
+					>
 				</li>
 				<li>
-					<a on:click={() => handleFilterClicked("#/completed")} class:selected={currentFilter === 'completed'} href="#/completed">Completed</a>
+					<a
+						on:click={() => handleFilterClicked('#/completed')}
+						class:selected={currentFilter === 'completed'}
+						href="#/completed">Completed</a
+					>
 				</li>
 			</ul>
 
 			{#if numCompleted}
-				<button class="clear-completed" on:click={onDeleteAllCompletedTodos}>Clear completed</button>
+				<button class="clear-completed" on:click={onDeleteAllCompletedTodos}>Clear completed</button
+				>
 			{/if}
 		</footer>
 	</section>
