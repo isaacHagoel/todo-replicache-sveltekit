@@ -9,12 +9,13 @@ export type UndoEntry = {
     // determines what gets removed when there are conflict
     scopeName: string,
     // will be returned from subscribeToCanUndoRedoChange so you can display it in a tooltip next to the buttons (e.g "undo add item")    
-    description?: string,
+    description: string,
+    reverseDescription: string,
 }
 
 export type UndoRedoStatus = {
-    canUndo: boolean | string, 
-    canRedo: boolean | string,
+    canUndo: false | string, 
+    canRedo: false | string,
     canUndoChangeReason: CHANGE_REASON,
     canRedoChangeReason: CHANGE_REASON
 } 
@@ -28,6 +29,12 @@ export enum CHANGE_REASON {
     Conflict = "Conflict",
     NoChange = "NoChange"
 }
+
+/**
+ * If history mode is off, if we do a squence like A -> B  -> (via Undo) A -> C, we the ability to restore C, undoing again goes back to A
+ * If history mode is on, undoing in the final state C will go back to A then B then A, maintaining the entire edit history 
+ */
+const IS_HISTORY_MODE = true;
 
 /****
  * This a POC implementation of an undo-redo manager that can deal with async or sync operations. 
@@ -70,14 +77,11 @@ export class UndoManager {
         return {isUndoConflict, isRedoConflict};
     }
 
-    private getLastEntryDescOrBoolean(stack: UndoEntry[]) {
-        return stack.length > 0 ? stack[stack.length - 1]?.description || true : false
-    }
     private async _updateCanUndoRedoStatus(changeReason = CHANGE_REASON.NoChange) {
         const {isUndoConflict, isRedoConflict} = await this.removeConflictingEntries();
         this._pubsub.set({
-            canUndo: this.getLastEntryDescOrBoolean(this._past),
-            canRedo: this.getLastEntryDescOrBoolean(this._future),
+            canUndo: this._past.length > 0 ? this._past[this._past.length - 1].reverseDescription : false,
+            canRedo: this._future.length > 0 ? this._future[this._future.length - 1].description : false,
             canUndoChangeReason: isUndoConflict ? CHANGE_REASON.Conflict : changeReason,
             canRedoChangeReason: isRedoConflict ? CHANGE_REASON.Conflict : changeReason
         });
@@ -87,6 +91,27 @@ export class UndoManager {
     }
 
     async do(undoEntry: UndoEntry) {
+        if (IS_HISTORY_MODE && this._future.length) {
+            this._future.reverse();
+            this._future.forEach(entry => {
+                this._past.push({
+                    ...entry,
+                });
+            });
+            this._future.reverse();
+            this._future.forEach(entry => {
+                this._past.push({
+                    ...entry, 
+                    operation: entry.reverseOperation, 
+                    reverseOperation: entry.operation, 
+                    hasUndoConflict: entry.hasRedoConflict,
+                    hasRedoConflict: entry.hasUndoConflict,
+                    description: entry.reverseDescription,
+                    reverseDescription: entry.description 
+                });
+            });
+        }
+        ///
         this._future = [];
         try {
             await this._serialAsyncExecutor.execute(undoEntry.operation);
@@ -95,6 +120,7 @@ export class UndoManager {
             console.error(`Faulty do operation: ${undoEntry.scopeName}`);
         }
         this._updateCanUndoRedoStatus(CHANGE_REASON.Do);
+        console.log({PAST: this._past, FUTURE: this._future});
     }
     async undo() {
         const entry = this._past.pop();

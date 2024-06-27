@@ -31,22 +31,25 @@
 	function updateTodoUndoStatusOnExternalChanges(data: Todo[]) {
 		// Without this filtering, it would call it twice on every change, including changes in the current session, which can mess the change reason field
 		const listBefore = [..._list];
-			const updatedByAnotherBefore = _list.filter(item => item.updatedBy !== mySessionId);
-			const updatedByAnotherNow = data.filter(item => item.updatedBy !== mySessionId);
-		
-			if (knownItemIds.find(id => !data.find(item => item.id === id)) // an item was deleted by another session 
-			|| updatedByAnotherNow.filter(item => {
-				const prev = updatedByAnotherBefore.find(prevItem => prevItem.id === item.id);
-				const prev2 = listBefore.find(prevItem => prevItem.id === item.id);
-				if (!prev2) return false; // new item
-				if (prev2 && !prev) return true; // an existing item that was updated by someone else now 
+		const updatedByAnotherBefore = _list.filter(item => item.updatedBy !== mySessionId);
+		const updatedByAnotherNow = data.filter(item => item.updatedBy !== mySessionId);
+	
+		if (
+			knownItemIds.find(id => !data.find(item => item.id === id)) // an item was deleted by another session 
+					|| 
+			updatedByAnotherNow.filter(item => {
+				const prevMe = listBefore.find(prevItem => prevItem.id === item.id);
+				if (!prevMe) return false; // new item
+				const prevOther = updatedByAnotherBefore.find(prevItem => prevItem.id === item.id);
+				if (prevMe && !prevOther) return true; // an existing item that was updated by someone else now 
 				/* this is not perfect - will be called if the other session creates and items and change it, 
 				without this session ever touching it - okay for now but not perfect */
-				return prev?.text !== item.text || prev?.completed !== item.completed;
-			}).length > 0) {
-				undoRedoManager.updateCanUndoRedoStatus();
-				return true;
-			} 
+				return prevOther?.text !== item.text || prevOther?.completed !== item.completed;
+		}).length > 0) 
+		{
+			undoRedoManager.updateCanUndoRedoStatus();
+			return true;
+		} 
 		return false;	
 	}
 	// I also couldn't find a way to learn whether our changes were overriden by the server (see the magic words in mutators.js)
@@ -119,7 +122,8 @@
 		let sort = -1; 
 		undoRedoManager.do({
 			scopeName: `create_todo:${id}`,
-			description: `create todo: '${text}''`,
+			description: `create todo: '${text}'`,
+			reverseDescription: `uncreate todo: '${text}'`,
 			operation: async () => {
 				if (isRedo) {
 					replicacheInstance.mutate.unDeleteTodo({...todoToCreate, sort});
@@ -149,8 +153,9 @@
 		undoRedoManager.do({
 			scopeName: `delete_todo:${id}`,
 			description: `delete todo: '${currentTodo.text}'`,
+			reverseDescription: `undelete_todo:${id}`,
 			operation: () => replicacheInstance.mutate.deleteTodo(id),
-			reverseOperation: () => replicacheInstance.mutate.unDeleteTodo(currentTodo),
+			reverseOperation: () => replicacheInstance.mutate.unDeleteTodo(currentTodo)
 			// no conflicts because we use nanoId, so another user can't create that same todo
 		});
 	}
@@ -165,6 +170,7 @@
 		undoRedoManager.do({
 			scopeName: `update_todo_text:${id}`,
 			description: `update todo text: '${currentTodo.text}' -> '${newText}'`,
+			reverseDescription: `update todo text: '${newText}' -> '${currentTodo.text}'`,
 			operation: () => replicacheInstance.mutate.updateTodo(updated),
 			reverseOperation: () => replicacheInstance.mutate.updateTodo(currentTodo),
 			hasUndoConflict: async () => {
@@ -175,7 +181,7 @@
 			hasRedoConflict: async () => {
 				const todoNow = await replicacheInstance.query(tx => getTodoById(tx, id));
 				if (!todoNow) return true;
-				return (todoNow.updatedBy !== mySessionId || todoNow.text !== currentTodo.text);
+				return (todoNow.updatedBy !== mySessionId && todoNow.text !== currentTodo.text);
 			}
 		});
 	}
@@ -189,6 +195,7 @@
 		undoRedoManager.do({
 			scopeName: `update_todo_completion:${id}`,
 			description: `mark todo ${currentTodo.text} ${isCompleted ? 'complete' : 'incomplete'}`,
+			reverseDescription: `mark todo ${currentTodo.text} ${isCompleted ? 'incomplete' : 'complete'}`,
 			operation: () => replicacheInstance.mutate.updateTodo(updated),
 			reverseOperation: () => replicacheInstance.mutate.updateTodo(currentTodo),
 			hasUndoConflict: async () => {
@@ -212,6 +219,7 @@
 		undoRedoManager.do({
 			scopeName: `setAllCompleted:${initialAllIdsList.join(',')}`,
 			description: `set all todos ${isCompleted? 'completed' : 'inccompleted'}`,
+			reverseDescription: `set all todos ${isCompleted? 'incompleted' : 'ccompleted'}`,
 			operation: async () => {
 				const currentList = await replicacheInstance.query(listTodos);
 				const remainingItems = currentList.filter(item => allIds.has(item.id)).filter(item => item.completed === !isCompleted);
@@ -248,7 +256,8 @@
 		const allIds =  new Set(InitialAllIdsList);
 		undoRedoManager.do({
 			scopeName: `deleteAllCompleted:${InitialAllIdsList.join(',')}`,
-			description: "deleted all completed todos",
+			description: "delete completed todos",
+			reverseDescription: "undelete completed todos",
 			operation: async () => {
 				let currentList = await replicacheInstance.query(listTodos);
 				// if the another session adds or deletes items that's fine, even if they are completed they won't be deleted by a redo
@@ -270,6 +279,7 @@
 		undoRedoManager.do({
 			scopeName: "filterChange",
 			description: `filter change ${from} -> ${to}`,
+			reverseDescription:  `filter change ${to} -> ${from}`,
 			operation: () => window.location.hash = to,
 			reverseOperation: () => window.location.hash = from
 		});
@@ -319,10 +329,10 @@
 </style>
 <p>{areAllChangesSaved ? 'All Data Saved' : 'Sync Pending'}</p>
 <section class="undo-redo-bar">
-	<button bind:this={undoButtonRef} on:click={() => undoRedoManager.undo()} title={canUndoRedo.canUndo ? "Undo " + canUndoRedo.canUndo : ''} disabled={!canUndoRedo.canUndo}>
+	<button bind:this={undoButtonRef} on:click={() => undoRedoManager.undo()} title={canUndoRedo.canUndo ? canUndoRedo.canUndo : ''} disabled={!canUndoRedo.canUndo}>
 		<img src="/undo.svg" alt="Undo Icon" />
 	</button>
-	<button  bind:this={redoButtonRef} on:click={() => undoRedoManager.redo()} title={canUndoRedo.canRedo ? "Redo " + canUndoRedo.canRedo : ''} disabled={!canUndoRedo.canRedo}>
+	<button  bind:this={redoButtonRef} on:click={() => undoRedoManager.redo()} title={canUndoRedo.canRedo ? canUndoRedo.canRedo : ''} disabled={!canUndoRedo.canRedo}>
 		<img src="/redo.svg" alt="Redo Icon" />
 	</button>
 </section>

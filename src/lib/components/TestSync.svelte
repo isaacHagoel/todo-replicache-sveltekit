@@ -10,6 +10,7 @@
         undoRedoManager.do({
             scopeName: "increaseCount",
             description: "increase counter",
+            reverseDescription: "decrease counter",
             operation: () => count++,
             reverseOperation: () => count--,
             hasUndoConflict: () => {
