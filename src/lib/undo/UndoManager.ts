@@ -62,6 +62,15 @@ export class UndoManager {
 			a.canRedoChangeReason === b.canRedoChangeReason
 	);
 	private _serialAsyncExecutor = serialAsyncExecutor();
+    constructor() {
+        // public API
+        this.do = this.do.bind(this);
+        this.undo = this.undo.bind(this);
+        this.redo = this.redo.bind(this);
+        this.subscribeToCanUndoRedoChange = this.subscribeToCanUndoRedoChange.bind(this);
+        this.getUndoRedoStatus = this.getUndoRedoStatus.bind(this);
+        this.updateCanUndoRedoStatus = this.updateCanUndoRedoStatus.bind(this);
+    }
 
 	private isLastIfConflicting(
 		stack: UndoEntry[],
@@ -134,7 +143,6 @@ export class UndoManager {
 			console.error(`Faulty do operation: ${undoEntry.scopeName}`);
 		}
 		this._updateCanUndoRedoStatus(CHANGE_REASON.Do);
-		console.log({ PAST: this._past, FUTURE: this._future });
 	}
 	async undo() {
 		const entry = this._past.pop();

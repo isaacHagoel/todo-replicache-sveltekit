@@ -22,8 +22,8 @@ Future enhancements:
 
 # todo-replicache-sveltekit
 
-Multiplayer, offline-compatible TODO-MVC Demo.
-![sveltekit-replicache-demo](https://github.com/isaacHagoel/todo-replicache-sveltekit/assets/20507787/11b5ae10-049d-4cc7-82bf-45d8287701f0)
+Conflicts aware Undo/Redo in a multiplayer, offline-compatible TODO-MVC Demo.
+![undo_basic_demo](https://github.com/isaacHagoel/todo-replicache-sveltekit/assets/20507787/55719699-55c0-43e0-bbfb-b6c60f067375)
 
 [Play with this app on render](https://todo-replicache-sveltekit.onrender.com/)
 
