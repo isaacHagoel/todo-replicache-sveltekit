@@ -6,7 +6,7 @@ export type UndoEntry = {
 	reverseOperation: () => void;
 	hasUndoConflict?: () => boolean | Promise<boolean>;
 	hasRedoConflict?: () => boolean | Promise<boolean>;
-	// determines what gets removed when there are conflict
+	// determines what gets removed when there are conflicts
 	scopeName: string;
 	// will be returned from subscribeToCanUndoRedoChange so you can display it in a tooltip next to the buttons (e.g "undo add item")
 	description: string;

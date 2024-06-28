@@ -124,6 +124,7 @@
 							class="edit"
 							on:keydown={handleEdit}
 							on:blur={submit}
+							autocomplete="off"
 							autofocus
 						/>
 					{/if}
