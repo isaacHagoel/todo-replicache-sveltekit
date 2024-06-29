@@ -1,31 +1,29 @@
-### TEMP - TODOS
-
-- [x] refactor the bulk operations to use updatedBy
-- [x] add indication to the undo and redo button whenever a conflict removes actions
-- [x] how does the undo manager deal with rollback of an optimistic update?
-- [x] the whole situation around user coming back from being offline is problematic, we probably want to check for conflicts and warning the user before pushing, this might not affect undo/redo though - as long as all the changes are made in order, in one transaction and on top of all previous changes
-- [x] clean console logs
-- [x] consider a pre-exec that "goes" to the element that will be affected
-- [x] address the todos in the code
-- [] improve this readme
-- [] improve the main readme
-
-Future enhancements:
-// add event listeners on ctrl+z, shift+ctrl+z
-// what about disabling the undo/redo as the user types in an input to avoid conflict with the browser undo redo? or do we prevent default?
-// the idea of pre-exec to scroll the affected element into view before operating on it
-// if there was text involved how would that integrate (need to restore selection and avoid having two separate undo stacks)
-// max entries (and taking options in general)
-// extract library?
-// what about tests?
-// persist the undo/redo stack per user in Replicache
-
-# todo-replicache-sveltekit
+# todo-replicache-sveltekit (with undo-redo)
 
 Conflicts aware Undo/Redo in a multiplayer, offline-compatible TODO-MVC Demo.
 ![undo_basic_demo](https://github.com/isaacHagoel/todo-replicache-sveltekit/assets/20507787/55719699-55c0-43e0-bbfb-b6c60f067375)
 
-[Play with this app on render](https://todo-replicache-sveltekit.onrender.com/)
+[Play with this app on render](https://todo-replicache-sveltekit.onrender.com/) // TODO - unpdate link
+
+This branch includes undo/ redo functionality that takes into account collaborative editing. When a conflict is detected, the conflicting entries are removed from the undo/ redo stacks. 
+It can deal with both sync and async operations and supports showing the user what's going to happen if they click undo or redo (hover over the buttons for a few seconds to see it).
+It supports histroy-mode undo (if the user makes changes after some undo actions, none of the "future" changes are lost).
+
+### Current gaps
+- If the server rejects an update there will be a bad entry in the undo stack. I couldn't find a way to get Replicache to tell me it happened. It should be possible to work around it with some app specific logic, but I didn't implement it.
+- The logic that detects whether a change that comes through in the subscription doesn't cover 100% of cases (see the relevant comment in the code). Good enough for the POC. Replicache would ideally provide that info as well.
+
+### Possible enhancements / thoughts:
+- Add event listeners on ctrl+z, shift+ctrl+z (I avoided it for the demo because the buttons ergonomics is part of what's being demonstrated).
+- Max entries option to limit the size of the undo/redo stack.
+- Can this conflict with the browser's built in undo/redo for text field? in this app it is not an issue but if extended it requires attention.
+- Scroll the affected element into view before operating on it - maybe by done by passing a query selector to the undoManager
+- If there was a text editor involved, how would that integrate (need to restore selection and avoid having two separate undo stacks)
+- Is it possible to persist the undo/redo stack per user in Replicache so that it is shared across sessions? The challenge would be serialising the functions I think. 
+- If the undo manager ever becomes a library it will need a lot of unit/integration tests. 
+// 
+
+## Original Readme (main branch)
 
 This repository contains sample code for [Replicache](https://replicache.dev/). The example uses SvelteKit. The backend demonstrates implementations of `push`, `pull`, `poke`, `createSpace`, and `spaceExists` handlers, which are required for the Replicache sync protocol.
 
