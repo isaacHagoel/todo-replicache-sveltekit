@@ -22,10 +22,6 @@
 	let mySessionId = '';
 	const undoRedoManager = new UndoManager();
 	let canUndoRedo = undoRedoManager.getUndoRedoStatus();
-	undoRedoManager.subscribeToCanUndoRedoChange((newStatus) => {
-		console.log('undoRedo sub fired', { ...newStatus });
-		canUndoRedo = newStatus;
-	});
 
 	/* Doing this because replicache doesn't expose info about whether incoming changes are self-inflicted or external */
 	$: knownItemIds = _list.map((item) => item.id);
@@ -64,6 +60,10 @@
 	/*************************************/
 
 	onMount(() => {
+		const undoUnsubscribe = undoRedoManager.subscribeToCanUndoRedoChange((newStatus) => {
+			console.log('undoRedo sub fired', { ...newStatus });
+			canUndoRedo = newStatus;
+		});
 		replicacheInstance = initReplicache(spaceID);
 		mySessionId = replicacheInstance.clientID;
 		replicacheInstance.subscribe(listTodos, (data) => {
@@ -81,7 +81,7 @@
 			replicacheInstance.pull();
 		});
 		// The line below is kinda dumb, it prevents Svelte from removing this store at compile time (since it has not subscribers)
-		const unsubscribe = sseStore.subscribe(() => {});
+		const sseUnsubscribe = sseStore.subscribe(() => {});
 
 		// This allows us to show the user whether all their local data is saved on the server
 		replicacheInstance.onSync = async (isSyncing) => {
@@ -91,7 +91,8 @@
 		// cleanup
 		return () => {
 			replicacheInstance.close();
-			unsubscribe();
+			sseUnsubscribe();
+			undoUnsubscribe();
 			connection.close();
 		};
 	});
