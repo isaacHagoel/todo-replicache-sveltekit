@@ -62,15 +62,15 @@ export class UndoManager {
 			a.canRedoChangeReason === b.canRedoChangeReason
 	);
 	private _serialAsyncExecutor = serialAsyncExecutor();
-    constructor() {
-        // public API
-        this.do = this.do.bind(this);
-        this.undo = this.undo.bind(this);
-        this.redo = this.redo.bind(this);
-        this.subscribeToCanUndoRedoChange = this.subscribeToCanUndoRedoChange.bind(this);
-        this.getUndoRedoStatus = this.getUndoRedoStatus.bind(this);
-        this.updateCanUndoRedoStatus = this.updateCanUndoRedoStatus.bind(this);
-    }
+	constructor() {
+		// public API
+		this.do = this.do.bind(this);
+		this.undo = this.undo.bind(this);
+		this.redo = this.redo.bind(this);
+		this.subscribeToCanUndoRedoChange = this.subscribeToCanUndoRedoChange.bind(this);
+		this.getUndoRedoStatus = this.getUndoRedoStatus.bind(this);
+		this.updateCanUndoRedoStatus = this.updateCanUndoRedoStatus.bind(this);
+	}
 
 	private isLastIfConflicting(
 		stack: UndoEntry[],

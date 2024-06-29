@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { UndoEntry } from '$lib/undo/UndoManager';
 
-	export let doOp : (entry: UndoEntry) => void;
+	export let doOp: (entry: UndoEntry) => void;
 	export let updateCanUndoRedoStatus: () => void;
 
 	let count = 0;
@@ -34,7 +34,8 @@
 		on:click={() => {
 			count = count + 1;
 			updateCanUndoRedoStatus();
-		}}>Simulate external increase (conflict)
+		}}
+		>Simulate external increase (conflict)
 	</button>
 </section>
 <hr />

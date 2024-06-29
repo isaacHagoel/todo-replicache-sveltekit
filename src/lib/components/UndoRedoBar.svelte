@@ -1,10 +1,10 @@
 <script lang="ts">
-	import { CHANGE_REASON, type UndoRedoStatus } from "$lib/undo/UndoManager";
+	import { CHANGE_REASON, type UndoRedoStatus } from '$lib/undo/UndoManager';
 
-    export let canUndoRedo: UndoRedoStatus;
-    export let onUndo: () => void;
-    export let onRedo: () => void;
-    let undoButtonRef: HTMLElement, redoButtonRef: HTMLElement;
+	export let canUndoRedo: UndoRedoStatus;
+	export let onUndo: () => void;
+	export let onRedo: () => void;
+	let undoButtonRef: HTMLElement, redoButtonRef: HTMLElement;
 	$: if (
 		canUndoRedo.canUndo &&
 		canUndoRedo.canUndoChangeReason !== CHANGE_REASON.Undo &&
@@ -22,6 +22,26 @@
 		window.requestAnimationFrame(() => redoButtonRef?.classList.add('shrink'));
 	}
 </script>
+
+<section class="undo-redo-bar">
+	<button
+		bind:this={undoButtonRef}
+		on:click={onUndo}
+		title={canUndoRedo.canUndo ? canUndoRedo.canUndo : ''}
+		disabled={!canUndoRedo.canUndo}
+	>
+		<img src="/undo.svg" alt="Undo Icon" />
+	</button>
+	<button
+		bind:this={redoButtonRef}
+		on:click={onRedo}
+		title={canUndoRedo.canRedo ? canUndoRedo.canRedo : ''}
+		disabled={!canUndoRedo.canRedo}
+	>
+		<img src="/redo.svg" alt="Redo Icon" />
+	</button>
+</section>
+
 <style>
 	.undo-redo-bar {
 		display: flex;
@@ -54,23 +74,3 @@
 		}
 	}
 </style>
-
-
-<section class="undo-redo-bar">
-	<button
-		bind:this={undoButtonRef}
-		on:click={onUndo}
-		title={canUndoRedo.canUndo ? canUndoRedo.canUndo : ''}
-		disabled={!canUndoRedo.canUndo}
-	>
-		<img src="/undo.svg" alt="Undo Icon" />
-	</button>
-	<button
-		bind:this={redoButtonRef}
-		on:click={onRedo}
-		title={canUndoRedo.canRedo ? canUndoRedo.canRedo : ''}
-		disabled={!canUndoRedo.canRedo}
-	>
-		<img src="/redo.svg" alt="Redo Icon" />
-	</button>
-</section>

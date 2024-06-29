@@ -300,14 +300,16 @@
 			reverseOperation: () => (window.location.hash = from)
 		});
 	}
-
 </script>
 
 <p>{areAllChangesSaved ? 'All Data Saved' : 'Sync Pending'}</p>
 
-<UndoRedoBar {canUndoRedo} onUndo={undoRedoManager.undo} onRedo={undoRedoManager.redo}/>
+<UndoRedoBar {canUndoRedo} onUndo={undoRedoManager.undo} onRedo={undoRedoManager.redo} />
 
-<TestSync doOp={undoRedoManager.do} updateCanUndoRedoStatus={undoRedoManager.updateCanUndoRedoStatus}/>
+<TestSync
+	doOp={undoRedoManager.do}
+	updateCanUndoRedoStatus={undoRedoManager.updateCanUndoRedoStatus}
+/>
 <section class="todoapp">
 	<TodoMVC
 		items={_list}
