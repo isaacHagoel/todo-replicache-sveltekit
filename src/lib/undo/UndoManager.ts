@@ -115,15 +115,15 @@ export class UndoManager {
 
 	async do(undoEntry: UndoEntry) {
 		if (IS_HISTORY_MODE && this._future.length) {
-			this._future.reverse();
-			this._future.forEach((entry) => {
-				this._past.push({
-					...entry
+            // push the entries in revese order and then the opposite operations in the normal order
+			for(let i = this._future.length - 1; i >= 0; i--) {
+                this._past.push({
+					...this._future[i]
 				});
-			});
-			this._future.reverse();
-			this._future.forEach((entry) => {
-				this._past.push({
+            }
+            for(let i = 0; i < this._future.length; i++) {
+                const entry = this._future[i];
+                this._past.push({
 					...entry,
 					operation: entry.reverseOperation,
 					reverseOperation: entry.operation,
@@ -132,7 +132,7 @@ export class UndoManager {
 					description: entry.reverseDescription,
 					reverseDescription: entry.description
 				});
-			});
+            }
 		}
 		///
 		this._future = [];
