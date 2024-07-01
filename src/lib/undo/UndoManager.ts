@@ -8,7 +8,7 @@ export type UndoEntry = {
 	hasRedoConflict?: () => boolean | Promise<boolean>;
 	// determines what gets removed when there are conflicts
 	scopeName: string;
-	// will be returned from subscribeToCanUndoRedoChange so you can display it in a tooltip next to the buttons (e.g "undo add item")
+	// will be returned from subscribeToCanUndoRedoChange so you can display it in a tooltip next to the buttons (e.g "un-create item")
 	description: string;
 	reverseDescription: string;
 };
