@@ -9,10 +9,14 @@ export type Todo = {
 	text: string;
 	completed: boolean;
 	sort: number;
+	updatedBy: string;
 };
 
-export type TodoUpdate = Partial<Todo> & Pick<Todo, 'id'>;
+export type TodoUpdate = Partial<Todo> & Pick<Todo, 'id' | 'updatedBy'>;
 
 export async function listTodos(tx: ReadTransaction) {
 	return await tx.scan<Todo>({ prefix: 'todo/' }).values().toArray();
+}
+export async function getTodoById(tx: ReadTransaction, id: string) {
+	return tx.get<Todo>(`todo/${id}`);
 }

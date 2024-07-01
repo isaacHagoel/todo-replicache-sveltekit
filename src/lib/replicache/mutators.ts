@@ -60,5 +60,25 @@ export const mutators = {
 
 		const maxSort = todos.pop()?.sort ?? 0;
 		await tx.set(`todo/${todo.id}`, { ...todo, sort: maxSort + 1 });
+	},
+	unDeleteTodo: async (tx: WriteTransaction, todo: Todo) => {
+		await tx.set(`todo/${todo.id}`, todo);
+	}
+};
+
+// this is for demo purpuses (to show how replicache rolls back failed changes, don't copy paste this to your app if using this as reference :))
+export const EXPLODE_SECRET_WORD = '___!!!explode!!!___';
+export const CONFLICT_AND_YOU_LOSE_SECRET_WORD = '___!!!conflict!!!___';
+export const serverMutators = {
+	...mutators,
+	updateTodo: async (tx: WriteTransaction, update: TodoUpdate) => {
+		// In a real app you may want to validate the incoming data is in fact a
+		// TodoUpdate. Check out https://www.npmjs.com/package/@rocicorp/rails for
+		// some helper functions to do this.
+		const prev = await tx.get<Todo>(`todo/${update.id}`);
+		if (update.text === EXPLODE_SECRET_WORD) throw new Error('exploded');
+		if (update.text === CONFLICT_AND_YOU_LOSE_SECRET_WORD) update.text = 'yeah no';
+		const next = { ...prev, ...update };
+		await tx.set(`todo/${next.id}`, next);
 	}
 };
